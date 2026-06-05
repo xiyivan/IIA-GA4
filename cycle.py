@@ -58,6 +58,65 @@ class HeatPumpCycle():
 
         return fig_ts, ax_ts, fig_pv, ax_pv
 
+    def solv_realistic(self, TCOLD, THOT, ETACOMP, FPCOND, FPEVA, graph=False):
+        if graph:
+            fig_ts, ax_ts, fig_pv, ax_pv = self.plot_saturation()
+        results = np.zeros((4,6))
+
+        # station 1
+        self.coolant.specify_phase(CoolProp.iphase_gas)
+        self.coolant.update(CoolProp.QT_INPUTS, 1, TCOLD)
+        results[0, :] = [self.coolant.keyed_output(k) for k in self.keys]
+        P1 = results[0, 2]
+
+        # station 3 (let T3 be THOT)
+        self.coolant.unspecify_phase()
+        self.coolant.update(CoolProp.QT_INPUTS, 0, THOT)
+        results[2, :] = [self.coolant.keyed_output(k) for k in self.keys]
+        P3 = results[2, 2]
+
+        # station 2
+        P2 = P3 / (1-FPCOND)
+        s2s = results[0, 4]
+        self.coolant.update(CoolProp.PSmass_INPUTS, P2, s2s)
+        h2s = self.coolant.hmass()
+        h2 = (h2s - results[0, 0])/ETACOMP + results[0,0]
+        self.coolant.update(CoolProp.HmassP_INPUTS, h2, P2)
+        results[1, :] = [self.coolant.keyed_output(k) for k in self.keys]
+
+
+        # station 4: isoenthalpy expansion
+        P4 = P1 / (1-FPEVA)
+        h4 = results[2,0]
+        self.coolant.update(CoolProp.HmassP_INPUTS, h4, P4)
+        results[3, :] = [self.coolant.keyed_output(k) for k in self.keys]
+
+        # Dry saturated vapour at P2 (inserted between station 2 and 3 for plotting)
+        self.coolant.update(CoolProp.PQ_INPUTS, P2, 1.0)
+        sat_vapor = np.array([self.coolant.keyed_output(k) for k in self.keys])
+
+
+        if graph:
+            results_full = np.insert(results, 2, sat_vapor.reshape(1, 6), axis=0)
+            # T-s diagram
+            plt.figure(fig_ts.number)
+            plt.plot([results_full[j, 4] for j in (0, 1, 2, 3, 4, 0)],
+                     [results_full[j, 1] for j in (0, 1, 2, 3, 4, 0)], 'o-')
+            # P-v diagram (results[:,3] is density, convert to specific volume)
+            plt.figure(fig_pv.number)
+            v_vals = [1.0 / results_full[j, 3] for j in range(5)]
+            plt.plot(v_vals + [v_vals[0]],
+                     [results_full[j, 2] for j in (0, 1, 2, 3, 4, 0)], 'o-')
+            v_min, v_max = min(v_vals), max(v_vals)
+            margin = 0.01
+            ax_pv.set_xlim(v_min - margin, v_max + margin)
+            plt.show()
+
+        self.results = results
+        return results
+
+
+
     def solv_theory(self, PREF, TREF, CMPART, ETACOMP, FPCOND, FPEVA, graph=False):
         """
         pass input as a single value

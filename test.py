@@ -1,14 +1,4 @@
-import matplotlib.pyplot as plt
-import numpy as np
+from cycle import HeatPumpCycle
 
-x = np.linspace(1, 1.8, 100)
-
-def poly(x):
-    return -0.4407*x**2 + 1.5216*x -1.0422
-
-def reverse(x):
-    return np.sqrt(0.08872327 * x - 0.0921302) + 0.03849259
-
-plt.plot(x, poly(x))
-plt.plot(x, reverse(x))
-plt.show()
+a = HeatPumpCycle()
+a.solv_realistic(288.969, 310.0, 0.8, 0.05, 0.08, True)

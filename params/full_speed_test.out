@@ -18,9 +18,9 @@ COP (external) = 4.0904
 
 
 Exergy Distribution (J/kg)
-  Compressor: +2.5792e+04
-  Condenser : -3.3654e+03
-  Throttle  : -3.9397e+03
-  Evaporator: -3.2755e+03
-  Water     : -2.9076e+04
-  Air       : +1.3865e+04
+  Compressor: +2.5205e+04
+  Condenser : -3.8130e+03
+  Throttle  : -4.4637e+03
+  Evaporator: -3.7112e+03
+  Water     : -1.2262e+04
+  Air       : -9.5535e+02

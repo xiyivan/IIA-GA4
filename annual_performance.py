@@ -7,6 +7,8 @@ import json
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_dir)
 
+from home import Home
+
 
 
 def data_reader(year):
@@ -29,47 +31,6 @@ def data_reader(year):
             if row_year == year:
                 temps.append(float(row[1]))
     return np.array(temps)
-
-def thermal_resistance_calc(wall_area, material_dict, window_thickness=0.004):
-    """
-    Calculate the overall thermal resistance of a building wall with a window.
-
-    material_dict : dict
-        Keys are material names,
-        values are thicknesses in meters.
-    """
-    WWR = 0.2  # Window-to-Wall Ratio
-
-    # Load csv file
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(script_dir, "construction_material.csv")
-    conductivity = {}
-    with open(csv_path, "r") as f:
-        reader = csv.reader(f)
-        next(reader)
-        for row in reader:
-            name = row[0].strip()
-            k = float(row[1])
-            conductivity[name] = k
-
-    #Wall
-    A_wall = wall_area * (1 - WWR)
-    R_wall = 0.0
-    for material, thickness in material_dict.items():
-        k = conductivity[material]
-        R_wall += thickness / (k * A_wall)
-
-    #Window
-    A_window = wall_area * WWR
-    k_glass = conductivity["Window Glass (Float)"]
-    R_window = window_thickness / (k_glass * A_window)
-
-    R_total = 1.0 / (1.0 / R_wall + 1.0 / R_window)
-    return R_total
-
-
-def heating_rate(T_room, T_out, R):
-    return (T_room - T_out) / R
 
 def prompt_data():
     params = {}
@@ -115,39 +76,17 @@ def select_or_create():
         return params
 
 
-# def COP_estimation(mode, Th, Tc, threshold):
-#     """
-#     mode1: use linear model obtained
-#     mode2: calculate at each location
-#     Th & Tc pass as ndarray for speedy processing
-#     """
-#     if mode == 1:
-#         x = Th/(Th-Tc)
-#         COP = np.where(x < threshold, 1, arr * 2)
-#         COP = 0.6225 * x - 0.7777
-#         return COP
-
-
-def power_required(Qdot, ambient_threshold, critic_temperature):
-    """
-    Qdot: heat loss rate of the room
-    ambient_threshold: temperature heating kicks in
-    critic_temperature: minimum temperature can be achieved with just heat pump
-
-    return the power of electricity required.
-    """
-    pass
-
-def calc_threshold_temp(Troom, HPpower, R):
-    A = R*HPpower
-    return Troom + 0.38885 * A - (0.151204 * A **2 + 0.6225 * A * Troom)**0.5
-    
-def energy_required(year, house):
-    temp_record = data_reader(year)
-    
-
-
-
 if __name__ == "__main__":
-    select_or_create()
-    year = input("Year to be studied")
+    params = select_or_create()
+    home = Home(
+        wall_area=params["wall_area"],
+        materials=params["materials"],
+        T_room=params["T_room"],
+        hp_power=params["hp_power"],
+        COE=params["COE"],
+    )
+    year = int(input("Year to be studied: "))
+    temps = data_reader(year)
+    print(f"Thermal resistance: {home.R:.4f} K/W")
+    print(f"Threshold temperature: {home.calc_threshold_temp():.2f} K")
+    home.energy_required(temps)
