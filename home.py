@@ -182,7 +182,136 @@ class Home:
 
         return total_energy_kwh
 
-    def exergy_analysis(self, water_pinch, air_pinch, water_flow_rate, air_flow_rate):
+    def exergy_analysis(self, temperatures, water_pinch=None, air_pinch=None,
+                        water_flow_rate=None, air_flow_rate=None,
+                        dt_hours=0.5, T0=298.15):
         """
-        Calculate the amount of exergy through the year
+        Calculate annual component exergy destruction from weather records.
+
+        temperatures : np.ndarray
+            Array of outdoor temperatures in degrees Celsius, matching
+            annual_performance.data_reader().
+        water_pinch, air_pinch : float, optional
+            Temperature differences in K. If omitted, the values stored on the
+            Home object are used.
+        water_flow_rate, air_flow_rate : float, optional
+            Kept for compatibility with the original unfinished interface. The
+            annual model sizes refrigerant flow from the building heat demand.
+        dt_hours : float
+            Time represented by each weather record in hours.
+        T0 : float or "outdoor"
+            Dead-state temperature in Kelvin. If "outdoor", each weather
+            record is used as its own dead-state temperature.
+
+        Returns
+        -------
+        dict
+            Annual exergy destruction in J/kWh for compressor, condenser,
+            throttle and evaporator, plus heat-pump duty summaries.
         """
+        from cycle import HeatPumpCycle
+
+        del water_flow_rate, air_flow_rate
+
+        temperatures = np.asarray(temperatures, dtype=float)
+        water_pinch = self.Thot - self.T_room if water_pinch is None else water_pinch
+        air_pinch = self.pinch_difference_air if air_pinch is None else air_pinch
+        dt_seconds = dt_hours * 3600.0
+
+        cycle = HeatPumpCycle(self.refrigerant)
+        component_loss = {
+            "compressor": 0.0,
+            "condenser": 0.0,
+            "throttle": 0.0,
+            "evaporator": 0.0,
+        }
+        total_heat_delivered = 0.0
+        total_electric_work = 0.0
+        active_records = 0
+        inactive_records = 0
+        skipped_records = 0
+        operating_point_cache = {}
+
+        for T_celsius in temperatures:
+            if not np.isfinite(T_celsius):
+                skipped_records += 1
+                continue
+
+            Tout = T_celsius + 273.15
+            if Tout >= self.T_room:
+                inactive_records += 1
+                continue
+
+            Q_demand = self.heating_rate(Tout)
+            if Q_demand <= 0:
+                inactive_records += 1
+                continue
+
+            Tcold = Tout - air_pinch
+            Thot = self.T_room + water_pinch
+            if Tcold <= 0 or Thot <= 0 or Tout <= 0:
+                skipped_records += 1
+                continue
+
+            dead_state = Tout if T0 == "outdoor" else float(T0)
+            cache_key = (round(Tcold, 6), round(Thot, 6), round(dead_state, 6))
+            if cache_key in operating_point_cache:
+                q_out, w_in, specific_loss = operating_point_cache[cache_key]
+            else:
+                try:
+                    cycle.solv_realistic(Tcold, Thot, self.ETACOMP,
+                                         self.FPCOND, self.FPEVA)
+                except Exception:
+                    skipped_records += 1
+                    continue
+
+                q_out = cycle.h2 - cycle.h3
+                q_in = cycle.h1 - cycle.h4
+                w_in = cycle.h2 - cycle.h1
+                if q_out <= 0 or q_in <= 0 or w_in <= 0:
+                    skipped_records += 1
+                    continue
+
+                specific_loss = {
+                    "compressor": dead_state * (cycle.s2 - cycle.s1),
+                    "condenser": dead_state * ((cycle.s3 - cycle.s2)
+                                               + q_out / self.T_room),
+                    "throttle": dead_state * (cycle.s4 - cycle.s3),
+                    "evaporator": dead_state * ((cycle.s1 - cycle.s4)
+                                                - q_in / Tout),
+                }
+                operating_point_cache[cache_key] = (q_out, w_in, specific_loss)
+
+            cop = q_out / w_in
+            hp_heat_capacity = cop * self.hp_power
+            Q_from_hp = min(Q_demand, hp_heat_capacity)
+            if Q_from_hp <= 0:
+                inactive_records += 1
+                continue
+
+            m_dot_ref = Q_from_hp / q_out
+            for component, loss_per_kg in specific_loss.items():
+                component_loss[component] += max(loss_per_kg, 0.0) * m_dot_ref * dt_seconds
+
+            total_heat_delivered += Q_from_hp * dt_seconds
+            total_electric_work += m_dot_ref * w_in * dt_seconds
+            active_records += 1
+
+        total_loss = sum(component_loss.values())
+        result = {
+            "component_loss_J": component_loss,
+            "total_loss_J": total_loss,
+            "component_loss_kWh": {
+                key: value / 3.6e6 for key, value in component_loss.items()
+            },
+            "total_loss_kWh": total_loss / 3.6e6,
+            "heat_delivered_by_hp_J": total_heat_delivered,
+            "heat_delivered_by_hp_kWh": total_heat_delivered / 3.6e6,
+            "electric_work_to_hp_J": total_electric_work,
+            "electric_work_to_hp_kWh": total_electric_work / 3.6e6,
+            "active_records": active_records,
+            "inactive_records": inactive_records,
+            "records_skipped": skipped_records,
+        }
+        self.exergy_result = result
+        return result
