@@ -1,0 +1,16 @@
+File, valve state(%), fan state(%), Time stamp, note
+HP_26May2026_03, 100, 100, 11:20, times flowrate by 60
+HP_26May2026_03, 100, 75, 21:00, times flowrate by 60
+HP_26May2026_03, 100, 50, 31:10, times flowrate by 60
+HP_26May2026_04, 100, 25, 1:10 , 
+HP_26May2026_05, 50, 100, 17:15,
+HP_26May2026_05, 50, 75, 22:45,
+HP_26May2026_05, 50, 50, 28:00,
+HP_26May2026_05, 50, 25, 33:00,
+HP_26May2026_05, 50, 100, 36:30, (2nd attempt)
+HP_26May2026_05, 75, 100, 39:45
+HP_26May2026_05, 75, 75, 42:15
+HP_26May2026_05, 75, 50, 47:00
+HP_26May2026_06, 75, 25, 5:30
+
+HP_26May2026_05, over temp, 34, 

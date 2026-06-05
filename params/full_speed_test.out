@@ -1,0 +1,26 @@
+
+Parameter set: full_speed_test
+PREF = 498460.0 Pa (4.9846 bar)
+TREF = 288.97 K (15.82 degC)
+CMPART = 3.2885
+ETACOMP= 0.81204
+FPCOND = 0.05
+FPEVA = 0.08228
+
+Cycle Results  [h (J/kg), T (K), P (Pa), v (m3/kg), s (J/kgK), Q]
+  Comp inlet  : 4.0760e+05  2.8897e+02  4.9846e+05  2.4218e+01  1.7203e+03  -1.0000e+00
+  Comp outlet : 4.3780e+05  3.4089e+02  1.6392e+06  7.8382e+01  1.7371e+03  -1.0000e+00
+  Cond outlet : 2.8230e+05  3.2993e+02  1.5572e+06  1.0694e+03  1.2695e+03  0.0000e+00
+  Evap inlet  : 2.8230e+05  2.9150e+02  5.4315e+05  8.1018e+01  1.2845e+03  3.1106e-01
+
+COP (internal) = 5.1483
+COP (external) = 4.0904
+
+
+Exergy Distribution (J/kg)
+  Compressor: +2.5792e+04
+  Condenser : -3.3654e+03
+  Throttle  : -3.9397e+03
+  Evaporator: -3.2755e+03
+  Water     : -2.9076e+04
+  Air       : +1.3865e+04
