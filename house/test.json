@@ -1,0 +1,13 @@
+{
+  "wall_area": 36.0,
+  "materials": {
+    "Common Brick": 0.1,
+    "Still Air": 0.05,
+    "Polyurethane (PUR/PIR)": 0.1,
+    "Concrete (Lightweight)": 0.1,
+    "Gypsum Plasterboard": 0.015
+  },
+  "T_room": 293.0,
+  "hp_power": 2000.0,
+  "COE": 0.31
+}

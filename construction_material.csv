@@ -1,0 +1,20 @@
+Material Name,Thermal Conductivity (W/m·K)
+Argon Gas (in double glazing),0.016
+Polyurethane (PUR/PIR),0.023
+Still Air,0.026
+Extruded Polystyrene (XPS),0.034
+Expanded Polystyrene (EPS),0.038
+Glass Wool / Mineral Wool,0.04
+Pine / Fir (Softwood),0.12
+Plywood,0.13
+Oak (Hardwood),0.16
+Gypsum Plasterboard,0.17
+Concrete (Lightweight),0.35
+Common Brick,0.6
+Window Glass (Float),1.05
+Dense Brick / Engineering Brick,1.2
+Concrete (Dense),1.4
+Granite / Stone,2.5
+Steel (Mild),50.0
+Aluminum,205.0
+Copper,385.0

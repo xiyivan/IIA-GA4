@@ -10,7 +10,7 @@ class Home:
 
 
     def __init__(self, wall_area, materials, T_room, hp_power, COE,
-                 window_thickness=0.004, WWR=0.2, pinch_difference_water=10,
+                 window_thickness=0.04, WWR=0.2, pinch_difference_water=10,
                  pinch_difference_air=10,
                  ETACOMP=0.75, FPCOND=0.04, FPEVA=0.04,
                  refrigerant="R134a"):
@@ -156,14 +156,31 @@ class Home:
             Q_hp = cop * self.hp_power
             return self.hp_power + (Q_loss - Q_hp)
 
-    def energy_required(self, temperatures):
+    def energy_required(self, temperatures, dt_hours=0.5):
         """
         Calculate total energy required for a year given temperature records.
 
         temperatures : np.ndarray
-            Array of outdoor temperatures (in Kelvin).
+            Array of outdoor temperatures in degrees Celsius.
+        dt_hours : float
+            Time step between consecutive readings in hours (default 1 h).
+
+        Returns
+        -------
+        total_energy : float
+            Total electrical energy required in kWh.
         """
-        pass
+        # Ensure T_crit is computed
+        if not hasattr(self, 'T_crit'):
+            self.calc_threshold_temp()
+
+        total_energy_kwh = 0.0
+        for T_celsius in temperatures:
+            Tout = T_celsius + 273.15  # convert °C → K
+            power_w = self.power_required(Tout)
+            total_energy_kwh += power_w * dt_hours / 1000.0  # W·h → kWh
+
+        return total_energy_kwh
 
     def exergy_analysis(self, water_pinch, air_pinch, water_flow_rate, air_flow_rate):
         """

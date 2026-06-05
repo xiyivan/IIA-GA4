@@ -14,8 +14,13 @@ from home import Home
 def data_reader(year):
     """
     Read the weather record and extract the temperature at particular year.
+
+    Raw values in the CSV are in degrees Celsius × 10.
+
+    Returns
+    -------
     temperatures : np.ndarray
-        Array of temperature values (in Kelvin) for the given year.
+        Array of temperature values in degrees Celsius.
     """
     script_dir = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(script_dir, "weather-raw.csv")
@@ -29,7 +34,7 @@ def data_reader(year):
             # Extract year from "YYYY-MM-DD HH:MM:SS"
             row_year = int(ts[:4])
             if row_year == year:
-                temps.append(float(row[1]))
+                temps.append(float(row[1]) / 10.0)  # °C×10 → °C
     return np.array(temps)
 
 def prompt_data():
@@ -86,7 +91,11 @@ if __name__ == "__main__":
         COE=params["COE"],
     )
     year = int(input("Year to be studied: "))
-    temps = data_reader(year)
+    temps_C = data_reader(year)
+
     print(f"Thermal resistance: {home.R:.4f} K/W")
     print(f"Threshold temperature: {home.calc_threshold_temp():.2f} K")
-    home.energy_required(temps)
+    energy_kwh = home.energy_required(temps_C)
+    cost = energy_kwh * params["COE"]
+    print(f"Total energy required: {energy_kwh:.2f} kWh")
+    print(f"Total cost: ${cost:.2f}")
