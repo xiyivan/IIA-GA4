@@ -182,21 +182,13 @@ class Home:
 
         return total_energy_kwh
 
-    def exergy_analysis(self, temperatures, water_pinch=None, air_pinch=None,
-                        water_flow_rate=None, air_flow_rate=None,
-                        dt_hours=0.5, T0=298.15):
+    def exergy_analysis(self, temperatures, dt_hours=0.5, T0="outdoor"):
         """
         Calculate annual component exergy destruction from weather records.
 
         temperatures : np.ndarray
             Array of outdoor temperatures in degrees Celsius, matching
             annual_performance.data_reader().
-        water_pinch, air_pinch : float, optional
-            Temperature differences in K. If omitted, the values stored on the
-            Home object are used.
-        water_flow_rate, air_flow_rate : float, optional
-            Kept for compatibility with the original unfinished interface. The
-            annual model sizes refrigerant flow from the building heat demand.
         dt_hours : float
             Time represented by each weather record in hours.
         T0 : float or "outdoor"
@@ -211,11 +203,7 @@ class Home:
         """
         from cycle import HeatPumpCycle
 
-        del water_flow_rate, air_flow_rate
-
         temperatures = np.asarray(temperatures, dtype=float)
-        water_pinch = self.Thot - self.T_room if water_pinch is None else water_pinch
-        air_pinch = self.pinch_difference_air if air_pinch is None else air_pinch
         dt_seconds = dt_hours * 3600.0
 
         cycle = HeatPumpCycle(self.refrigerant)
@@ -230,7 +218,6 @@ class Home:
         active_records = 0
         inactive_records = 0
         skipped_records = 0
-        operating_point_cache = {}
 
         for T_celsius in temperatures:
             if not np.isfinite(T_celsius):
@@ -247,40 +234,34 @@ class Home:
                 inactive_records += 1
                 continue
 
-            Tcold = Tout - air_pinch
-            Thot = self.T_room + water_pinch
-            if Tcold <= 0 or Thot <= 0 or Tout <= 0:
+            Tcold = Tout - self.pinch_difference_air
+            if Tcold <= 0 or self.Thot <= 0 or Tout <= 0:
                 skipped_records += 1
                 continue
 
             dead_state = Tout if T0 == "outdoor" else float(T0)
-            cache_key = (round(Tcold, 6), round(Thot, 6), round(dead_state, 6))
-            if cache_key in operating_point_cache:
-                q_out, w_in, specific_loss = operating_point_cache[cache_key]
-            else:
-                try:
-                    cycle.solv_realistic(Tcold, Thot, self.ETACOMP,
-                                         self.FPCOND, self.FPEVA)
-                except Exception:
-                    skipped_records += 1
-                    continue
+            try:
+                cycle.solv_realistic(Tcold, self.Thot, self.ETACOMP,
+                                     self.FPCOND, self.FPEVA)
+            except Exception:
+                skipped_records += 1
+                continue
 
-                q_out = cycle.h2 - cycle.h3
-                q_in = cycle.h1 - cycle.h4
-                w_in = cycle.h2 - cycle.h1
-                if q_out <= 0 or q_in <= 0 or w_in <= 0:
-                    skipped_records += 1
-                    continue
+            q_out = cycle.h2 - cycle.h3
+            q_in = cycle.h1 - cycle.h4
+            w_in = cycle.h2 - cycle.h1
+            if q_out <= 0 or q_in <= 0 or w_in <= 0:
+                skipped_records += 1
+                continue
 
-                specific_loss = {
-                    "compressor": dead_state * (cycle.s2 - cycle.s1),
-                    "condenser": dead_state * ((cycle.s3 - cycle.s2)
-                                               + q_out / self.T_room),
-                    "throttle": dead_state * (cycle.s4 - cycle.s3),
-                    "evaporator": dead_state * ((cycle.s1 - cycle.s4)
-                                                - q_in / Tout),
-                }
-                operating_point_cache[cache_key] = (q_out, w_in, specific_loss)
+            specific_loss = {
+                "compressor": dead_state * (cycle.s2 - cycle.s1),
+                "condenser": dead_state * ((cycle.s3 - cycle.s2)
+                                           + q_out / self.T_room),
+                "throttle": dead_state * (cycle.s4 - cycle.s3),
+                "evaporator": dead_state * ((cycle.s1 - cycle.s4)
+                                            - q_in / Tout),
+            }
 
             cop = q_out / w_in
             hp_heat_capacity = cop * self.hp_power
