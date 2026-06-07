@@ -9,5 +9,7 @@
   },
   "T_room": 293.0,
   "hp_power": 2000.0,
-  "COE": 0.31
+  "COE": 0.31,
+  "condenser_water_m_dot": 0.25,
+  "evaporator_air_m_dot": 0.6
 }
