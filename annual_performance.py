@@ -3,11 +3,42 @@ import csv
 import numpy as np
 import sys
 import json
+from datetime import datetime
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_dir)
 
 from home import Home
+
+
+def weather_records(year):
+    """
+    Read Cambridge weather records for a given year.
+
+    Raw temperature values in weather-raw.csv are in degrees Celsius x 10.
+
+    Returns
+    -------
+    timestamps : np.ndarray
+        Python datetime objects for each weather record.
+    temperatures : np.ndarray
+        Outdoor dry-bulb temperatures in degrees Celsius.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(script_dir, "weather-raw.csv")
+
+    timestamps = []
+    temps = []
+
+    with open(csv_path, "r") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            timestamp = datetime.strptime(row[0].strip(), "%Y-%m-%d %H:%M:%S")
+            if timestamp.year == year:
+                timestamps.append(timestamp)
+                temps.append(float(row[1]) / 10.0)
+
+    return np.array(timestamps, dtype=object), np.array(temps)
 
 
 
@@ -22,20 +53,8 @@ def data_reader(year):
     temperatures : np.ndarray
         Array of temperature values in degrees Celsius.
     """
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(script_dir, "weather-raw.csv")
-
-    temps = []
-
-    with open(csv_path, "r") as f:
-        reader = csv.reader(f)
-        for row in reader:
-            ts = row[0].strip()
-            # Extract year from "YYYY-MM-DD HH:MM:SS"
-            row_year = int(ts[:4])
-            if row_year == year:
-                temps.append(float(row[1]) / 10.0)  # °C×10 → °C
-    return np.array(temps)
+    _, temperatures = weather_records(year)
+    return temperatures
 
 def prompt_data():
     params = {}
@@ -89,13 +108,23 @@ if __name__ == "__main__":
         T_room=params["T_room"],
         hp_power=params["hp_power"],
         COE=params["COE"],
+        condenser_water_m_dot=params.get("condenser_water_m_dot", 0.25),
+        evaporator_air_m_dot=params.get("evaporator_air_m_dot", 0.60),
     )
     year = int(input("Year to be studied: "))
     temps_C = data_reader(year)
 
     print(f"Thermal resistance: {home.R:.4f} K/W")
     print(f"Threshold temperature: {home.calc_threshold_temp():.2f} K")
-    energy_kwh = home.energy_required(temps_C)
-    cost = energy_kwh * params["COE"]
-    print(f"Total energy required: {energy_kwh:.2f} kWh")
-    print(f"Total cost: ${cost:.2f}")
+    result = home.annual_analysis(temps_C)
+    print(f"Heat demand: {result['heat_demand_kWh']:.2f} kWh")
+    print(f"Heat-pump electricity: {result['hp_electric_kWh']:.2f} kWh")
+    print(f"Backup electricity: {result['backup_electric_kWh']:.2f} kWh")
+    print(f"Total electricity required: {result['total_electric_kWh']:.2f} kWh")
+    print(f"System SPF: {result['system_spf']:.3f}")
+    print(
+        "External-fluid exergy changes: "
+        f"water={result['external_fluid_exergy_change_kWh']['condenser_water']:.2f} kWh, "
+        f"air={result['external_fluid_exergy_change_kWh']['evaporator_air']:.2f} kWh"
+    )
+    print(f"Total cost: ${result['operating_cost']:.2f}")
